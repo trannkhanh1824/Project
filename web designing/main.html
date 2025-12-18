@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>D3 Dashboard – Main</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+  }
+
+.hero {
+  height: 90vh;
+  background: 
+    linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)),
+    url("https://raw.githubusercontent.com/trannkhanh1824/DSDV111/main/background.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+/* CENTER TEXT */
+.hero-content {
+  color: white;
+}
+
+/* MAIN TITLE */
+.hero h1 {
+  font-size: 64px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  margin-bottom: 20px;
+}
+
+/* SUBTITLE */
+.hero h2 {
+  font-size: 26px;
+  font-weight: 300;
+  opacity: 0.9;
+}
+#introduce {
+  min-height: 60vh;
+  background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+  color: white;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+
+  text-align: center;
+  padding: 60px 20px;
+}
+
+#introduce h1 {
+  font-size: 42px;
+  margin-bottom: 20px;
+  letter-spacing: 2px;
+}
+
+#introduce p {
+  max-width: 800px;
+  font-size: 20px;
+  line-height: 1.6;
+  opacity: 0.9;
+}
+
+body {
+  background: #000;
+  font-family: Arial, sans-serif;
+}
+
+.card {
+  background: #fff;
+  padding: 20px;
+  width: 260px;
+  border-radius: 4px;
+}
+
+.card h3 {
+  margin-bottom: 10px;
+}
+
+.card p {
+  font-size: 14px;
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.btn {
+  display: inline-block;
+  background: #000;
+  color: #fff;
+  text-decoration: none;
+  padding: 10px 18px;
+  font-size: 14px;
+  border-radius: 2px;
+}
+
+.btn:hover {
+  background: #333;
+}
+
+.container {
+  display: flex;
+  gap: 20px;
+  max-width: 900px;    
+  margin: 40px auto;   
+  justify-content: center;
+  
+}
+
+#container h1 {
+  font-size: 42px;
+  margin-bottom: 20px;
+  letter-spacing: 2px;
+  color: white;
+  text-align: center;
+}
+
+.card {
+  background: #fff;
+  padding: 20px;
+  flex: 1;
+  max-width: 280px;    
+  border-radius: 6px;
+}
+
+
+.btn {
+  display: inline-block;
+  background: #000;
+  color: #fff;
+  padding: 10px 18px;
+  text-decoration: none;
+}
+
+</style>
+
+</head>
+
+<body>
+<section class="hero">
+  <div class="hero-content">
+    <h1>Salaries distribution in IT</h1>
+    <h2>Data Science and Data Visualization project</h2>
+  </div>
+</section>
+
+<div id = introduce>
+    <h1>INTRODUCTION</h1>
+    <p>
+        This project is done in order to finish the requirement of the course and also a chance for our group to improve our knowlegde with HTML  
+    </p>
+</div>
+
+<div id="container">
+  <h1>Our designed features</h1>
+
+  <div class="container">
+    <div class="card">
+      <h3>Distribution Chart</h3>
+      <p>Stacked bars to see experience level and specialist 
+        in multiple sized company</p>
+      <a href="exp_job_distribution.html" class="btn">View</a>
+    </div>
+
+    <div class="card">
+      <h3>Salary distribution by experience levels</h3>
+      <p>Line chart displays the median of 
+        salary by experience levels</p>
+      <a href="exp_salary.html" class="btn">View</a>
+    </div>
+
+    <div class="card">
+      <h3>Salary distribution by company size</h3>
+      <p>Line chart displays the median of
+         salary by company size</p>
+      <a href="salary_by_size_exp.html" class="btn">View</a>
+    </div>
+  </div>
+</div>
+
+</body>

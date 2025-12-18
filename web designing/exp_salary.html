@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>D3 – Salary Growth by Specialization (Tooltip)</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+    }
+
+    #header {
+      background: linear-gradient(90deg, #4facfe, #00f2fe);
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      color: white;
+      margin-bottom: 20px;
+    }
+
+    #header h2 {
+      font-size: 30px;
+      margin-bottom: 10px;
+      letter-spacing: 2px;
+      color: black;
+    }
+
+    #header h3 {
+      font-size: 18px;
+      letter-spacing: 1px;
+      color: black;
+    }
+
+    .axis path,
+    .axis line {
+      stroke: #aaa;
+    }
+
+    .line {
+      fill: none;
+      stroke-width: 2.5px;
+    }
+
+    .legend text {
+      font-size: 12px;
+    }
+
+    .tooltip {
+      position: absolute;
+      background: white;
+      border: 1px solid #ccc;
+      padding: 6px 10px;
+      font-size: 12px;
+      pointer-events: none;
+      border-radius: 4px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+  </style>
+</head>
+<body>
+
+<div id="header">
+  <h2>Salary Growth Across Experience Levels by Specialization</h2>
+  <h3>Median salary (USD). Hover over points to see exact values.</h3>
+    <a href="main.html" class="back-button" style="position:absolute; left:50px; top:50px;">
+    ← Back
+  </a>
+</div>
+
+<svg width="950" height="500"></svg>
+<div class="tooltip" style="opacity:0"></div>
+
+<script>
+/* =============================
+   SPECIALIZATION MAPPING
+============================= */
+function mapSpecialist(title) {
+  const t = title.toLowerCase();
+  if (t.includes("ai") || t.includes("ml")) return "AI";
+  if (t.includes("data")) return "Data";
+  if (t.includes("engineer")) return "Engineering";
+  if (t.includes("product")) return "Product";
+  return "Other";
+}
+
+/* =============================
+   SVG SETUP
+============================= */
+const svg = d3.select("svg");
+const tooltip = d3.select(".tooltip");
+
+const margin = { top: 40, right: 220, bottom: 60, left: 80 };
+const width = +svg.attr("width") - margin.left - margin.right;
+const height = +svg.attr("height") - margin.top - margin.bottom;
+
+const g = svg.append("g")
+  .attr("transform", `translate(${margin.left},${margin.top})`);
+
+const experienceOrder = ["EN", "MI", "SE", "EX"];
+
+const x = d3.scalePoint()
+  .domain(experienceOrder)
+  .range([0, width])
+  .padding(0.5);
+
+const y = d3.scaleLinear()
+  .range([height, 0]);
+
+const color = d3.scaleOrdinal(d3.schemeTableau10);
+
+const xAxis = g.append("g")
+  .attr("transform", `translate(0,${height})`)
+  .attr("class", "axis");
+
+const yAxis = g.append("g")
+  .attr("class", "axis");
+
+/* =============================
+   LOAD DATA
+============================= */
+d3.csv("/resources/salaries.csv", d3.autoType).then(data => {
+
+  // Add specialization field
+  data.forEach(d => {
+    d.specialization = mapSpecialist(d.job_title);
+  });
+
+  /* =============================
+     AGGREGATE MEDIAN SALARY
+  ============================= */
+  const rolled = d3.rollups(
+    data,
+    v => d3.median(v, d => d.salary_in_usd),
+    d => d.specialization,
+    d => d.experience_level
+  );
+
+  const dataset = rolled.map(([specialization, values]) => ({
+    specialization,
+    values: experienceOrder.map(exp => {
+      const found = values.find(v => v[0] === exp);
+      return {
+        experience: exp,
+        salary: found ? found[1] : null
+      };
+    })
+  }));
+
+  /* =============================
+     SCALES
+  ============================= */
+  y.domain([
+    0,
+    d3.max(dataset, d => d3.max(d.values, v => v.salary))
+  ]).nice();
+
+  color.domain(dataset.map(d => d.specialization));
+
+  /* =============================
+     AXES
+  ============================= */
+  xAxis.call(d3.axisBottom(x));
+  yAxis.call(d3.axisLeft(y).tickFormat(d => `$${d / 1000}k`));
+
+  /* =============================
+     LINE GENERATOR
+  ============================= */
+  const line = d3.line()
+    .defined(d => d.salary !== null)
+    .x(d => x(d.experience))
+    .y(d => y(d.salary));
+
+  /* =============================
+     DRAW LINES
+  ============================= */
+  g.selectAll(".line")
+    .data(dataset)
+    .join("path")
+    .attr("class", "line")
+    .attr("stroke", d => color(d.specialization))
+    .attr("d", d => line(d.values));
+
+  /* =============================
+     DRAW POINTS + TOOLTIP
+  ============================= */
+  g.selectAll(".points")
+    .data(dataset)
+    .join("g")
+    .attr("class", "points")
+    .attr("fill", d => color(d.specialization))
+    .selectAll("circle")
+    .data(d => d.values.filter(v => v.salary !== null))
+    .join("circle")
+    .attr("cx", d => x(d.experience))
+    .attr("cy", d => y(d.salary))
+    .attr("r", 5)
+    .on("mouseover", function (event, d) {
+      d3.select(this).attr("r", 8);
+
+      const spec = d3.select(this.parentNode).datum().specialization;
+
+      tooltip
+        .style("opacity", 1)
+        .html(`
+          <strong>${spec}</strong><br/>
+          Experience: ${d.experience}<br/>
+          Salary: $${d.salary.toLocaleString()}
+        `);
+    })
+    .on("mousemove", function (event) {
+      tooltip
+        .style("left", (event.pageX + 12) + "px")
+        .style("top", (event.pageY - 28) + "px");
+    })
+    .on("mouseout", function () {
+      d3.select(this).attr("r", 5);
+      tooltip.style("opacity", 0);
+    });
+
+  /* =============================
+     LEGEND
+  ============================= */
+  const legend = svg.append("g")
+    .attr("class", "legend")
+    .attr("transform", `translate(${margin.left + width + 30},${margin.top})`);
+
+  dataset.forEach((d, i) => {
+    const row = legend.append("g")
+      .attr("transform", `translate(0, ${i * 22})`);
+
+    row.append("rect")
+      .attr("width", 14)
+      .attr("height", 14)
+      .attr("fill", color(d.specialization));
+
+    row.append("text")
+      .attr("x", 20)
+      .attr("y", 11)
+      .attr("dominant-baseline", "middle")
+      .text(d.specialization);
+  });
+
+});
+</script>
+
+</body>
+</html>

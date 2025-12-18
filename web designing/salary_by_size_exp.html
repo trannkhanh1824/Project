@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>D3 – Salary by Experience, Company Size, and Year</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+    }
+
+    #header {
+      background: linear-gradient(90deg, #4facfe, #00f2fe); /* Blue gradient */
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      color: white; 
+    }
+
+
+    #header h2 {
+      font-size: 30px;
+      margin-bottom: 20px;
+      letter-spacing: 2px;
+      color: black;
+      text-align: center;
+    }
+
+    #header h3 {
+      font-size: 20px;
+      margin-bottom: 20px;
+      letter-spacing: 2px;
+      color: black;
+      text-align: center;
+    }
+
+    .axis path,
+    .axis line {
+      stroke: #aaa;
+    }
+
+    .legend text {
+      font-size: 12px;
+    }
+
+    #controls {
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+  </style>
+</head>
+<body>
+
+<div id = "header">
+  <h2>How Company Size Pays Differently by Experience Level (Over Time)</h2>
+  <h3>Median salary (USD) by experience level and company size, shown per year.</h3>
+  <h3>Median salary (USD). Hover over points to see exact values.</h3>
+    <a href="main.html" class="back-button" style="position:absolute; left:50px; top:50px;">
+    ← Back
+  </a>
+</div>
+
+<div id="controls">
+  <label for="yearSlider"><strong>Year:</strong></label>
+  <input type="range" id="yearSlider" />
+  <span id="yearLabel"></span>
+</div>
+
+<svg width="900" height="450"></svg>
+
+<script>
+const svg = d3.select("svg");
+const margin = { top: 40, right: 180, bottom: 60, left: 80 };
+const width = +svg.attr("width") - margin.left - margin.right;
+const height = +svg.attr("height") - margin.top - margin.bottom;
+
+const g = svg.append("g")
+  .attr("transform", `translate(${margin.left},${margin.top})`);
+
+const x0 = d3.scaleBand().paddingInner(0.2).range([0, width]);
+const x1 = d3.scaleBand().padding(0.1);
+const y = d3.scaleLinear().range([height, 0]);
+
+const experienceLevels = ["EN", "MI", "SE", "EX"];
+const companySizes = ["S", "M", "L"];
+
+const color = d3.scaleOrdinal()
+  .domain(companySizes)
+  .range(d3.schemeTableau10);
+
+const xAxis = g.append("g")
+  .attr("transform", `translate(0,${height})`)
+  .attr("class", "axis");
+
+const yAxis = g.append("g")
+  .attr("class", "axis");
+
+// =============================
+// LOAD CSV
+// =============================
+d3.csv("/resources/salaries.csv", d3.autoType).then(data => {
+
+  // =============================
+  // PRE-AGGREGATE BY YEAR
+  // =============================
+  const dataByYear = {};
+
+  const rolled = d3.rollups(
+    data,
+    v => d3.median(v, d => d.salary_in_usd),
+    d => d.work_year,
+    d => d.experience_level,
+    d => d.company_size
+  );
+
+  rolled.forEach(([year, exps]) => {
+    dataByYear[year] = [];
+
+    exps.forEach(([exp, sizes]) => {
+      sizes.forEach(([size, salary]) => {
+        dataByYear[year].push({
+          experience: exp,
+          company_size: size,
+          salary: salary
+        });
+      });
+    });
+  });
+
+  const years = Object.keys(dataByYear).sort();
+
+  // =============================
+  // SLIDER SETUP
+  // =============================
+  const slider = d3.select("#yearSlider")
+    .attr("min", 0)
+    .attr("max", years.length - 1)
+    .attr("value", years.length - 1)
+    .on("input", function () {
+      update(years[this.value]);
+    });
+
+  // =============================
+  // UPDATE FUNCTION
+  // =============================
+  function update(year) {
+    d3.select("#yearLabel").text(year);
+
+    const dataYear = dataByYear[year];
+
+    x0.domain(experienceLevels);
+    x1.domain(companySizes).range([0, x0.bandwidth()]);
+    y.domain([0, d3.max(dataYear, d => d.salary)]).nice();
+
+    xAxis.call(d3.axisBottom(x0));
+    yAxis.call(d3.axisLeft(y).tickFormat(d => `$${d / 1000}k`));
+
+    const groups = g.selectAll(".exp-group")
+      .data(experienceLevels)
+      .join("g")
+      .attr("class", "exp-group")
+      .attr("transform", d => `translate(${x0(d)},0)`);
+
+    groups.selectAll("rect")
+      .data(exp => dataYear.filter(d => d.experience === exp))
+      .join("rect")
+      .transition()
+      .duration(500)
+      .attr("x", d => x1(d.company_size))
+      .attr("y", d => y(d.salary))
+      .attr("width", x1.bandwidth())
+      .attr("height", d => height - y(d.salary))
+      .attr("fill", d => color(d.company_size));
+  }
+
+  // =============================
+  // LEGEND
+  // =============================
+  const legend = svg.append("g")
+    .attr("class", "legend")
+    .attr("transform", `translate(${margin.left + width + 40},${margin.top})`);
+
+  companySizes.forEach((size, i) => {
+    const row = legend.append("g")
+      .attr("transform", `translate(0, ${i * 20})`);
+
+    row.append("rect")
+      .attr("width", 14)
+      .attr("height", 14)
+      .attr("fill", color(size));
+
+    row.append("text")
+      .attr("x", 20)
+      .attr("y", 12)
+      .attr("dominant-baseline", "middle")
+      .text(size === "S" ? "Small" : size === "M" ? "Medium" : "Large");
+  });
+
+  // Initial render
+  update(years[years.length - 1]);
+
+});
+</script>
+
+</body>
+</html>
