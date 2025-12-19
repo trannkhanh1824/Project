@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <title>D3 – Salary by Experience, Company Size, and Year</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -11,28 +12,16 @@
     }
 
     #header {
-      background: linear-gradient(90deg, #4facfe, #00f2fe); /* Blue gradient */
+      background: linear-gradient(90deg, #4facfe, #00f2fe);
       padding: 20px;
       border-radius: 10px;
       text-align: center;
-      color: white; 
+      color: white;
+      position: relative;
     }
 
-
-    #header h2 {
-      font-size: 30px;
-      margin-bottom: 20px;
-      letter-spacing: 2px;
+    #header h2, #header h3 {
       color: black;
-      text-align: center;
-    }
-
-    #header h3 {
-      font-size: 20px;
-      margin-bottom: 20px;
-      letter-spacing: 2px;
-      color: black;
-      text-align: center;
     }
 
     .axis path,
@@ -50,16 +39,55 @@
       align-items: center;
       gap: 12px;
     }
+
+    /* =====================
+       TOOLTIP
+    ====================== */
+    .tooltip {
+      position: absolute;
+      background: rgba(0,0,0,0.95);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      pointer-events: none;
+      opacity: 0;
+      z-index: 10000;
+      transition: opacity 0.2s;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      min-width: 220px;
+    }
+
+    .tooltip-title {
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.3);
+      padding-bottom: 6px;
+    }
+
+    .tooltip-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 4px 0;
+    }
+
+    .tooltip-label {
+      color: #aaa;
+    }
+
+    .tooltip-value {
+      font-weight: bold;
+      color: #4facfe;
+    }
   </style>
 </head>
+
 <body>
 
-<div id = "header">
+<div id="header">
   <h2>How Company Size Pays Differently by Experience Level (Over Time)</h2>
   <h3>Mean salary (USD) by experience level and company size, shown per year.</h3>
-    <a href="main.html" class="back-button" style="position:absolute; left:50px; top:50px;">
-    ← Back
-  </a>
 </div>
 
 <div id="controls">
@@ -70,8 +98,13 @@
 
 <svg width="900" height="450"></svg>
 
+<!-- Tooltip -->
+<div class="tooltip" id="tooltip"></div>
+
 <script>
 const svg = d3.select("svg");
+const tooltip = d3.select("#tooltip");
+
 const margin = { top: 40, right: 180, bottom: 60, left: 80 };
 const width = +svg.attr("width") - margin.left - margin.right;
 const height = +svg.attr("height") - margin.top - margin.bottom;
@@ -97,14 +130,8 @@ const xAxis = g.append("g")
 const yAxis = g.append("g")
   .attr("class", "axis");
 
-// =============================
-// LOAD CSV
-// =============================
 d3.csv("/resources/salaries.csv", d3.autoType).then(data => {
 
-  // =============================
-  // PRE-AGGREGATE BY YEAR
-  // =============================
   const dataByYear = {};
 
   const rolled = d3.rollups(
@@ -117,7 +144,6 @@ d3.csv("/resources/salaries.csv", d3.autoType).then(data => {
 
   rolled.forEach(([year, exps]) => {
     dataByYear[year] = [];
-
     exps.forEach(([exp, sizes]) => {
       sizes.forEach(([size, salary]) => {
         dataByYear[year].push({
@@ -131,10 +157,7 @@ d3.csv("/resources/salaries.csv", d3.autoType).then(data => {
 
   const years = Object.keys(dataByYear).sort();
 
-  // =============================
-  // SLIDER SETUP
-  // =============================
-  const slider = d3.select("#yearSlider")
+  d3.select("#yearSlider")
     .attr("min", 0)
     .attr("max", years.length - 1)
     .attr("value", years.length - 1)
@@ -142,12 +165,8 @@ d3.csv("/resources/salaries.csv", d3.autoType).then(data => {
       update(years[this.value]);
     });
 
-  // =============================
-  // UPDATE FUNCTION
-  // =============================
   function update(year) {
     d3.select("#yearLabel").text(year);
-
     const dataYear = dataByYear[year];
 
     x0.domain(experienceLevels);
@@ -166,20 +185,33 @@ d3.csv("/resources/salaries.csv", d3.autoType).then(data => {
     groups.selectAll("rect")
       .data(exp => dataYear.filter(d => d.experience === exp))
       .join("rect")
+      .attr("x", d => x1(d.company_size))
+      .attr("width", x1.bandwidth())
+      .attr("fill", d => color(d.company_size))
+      .on("mouseover", (event, d) => {
+        tooltip
+          .style("opacity", 1)
+          .html(`
+            <div class="tooltip-title">Salary Details</div>
+            <div class="tooltip-row"><span class="tooltip-label">Year</span><span class="tooltip-value">${year}</span></div>
+            <div class="tooltip-row"><span class="tooltip-label">Experience</span><span class="tooltip-value">${d.experience}</span></div>
+            <div class="tooltip-row"><span class="tooltip-label">Company Size</span><span class="tooltip-value">${d.company_size}</span></div>
+            <div class="tooltip-row"><span class="tooltip-label">Mean Salary</span><span class="tooltip-value">$${d3.format(",")(Math.round(d.salary))}</span></div>
+          `);
+      })
+      .on("mousemove", event => {
+        tooltip
+          .style("left", (event.pageX + 15) + "px")
+          .style("top", (event.pageY - 28) + "px");
+      })
+      .on("mouseout", () => tooltip.style("opacity", 0))
       .transition()
       .duration(500)
-      .attr("x", d => x1(d.company_size))
       .attr("y", d => y(d.salary))
-      .attr("width", x1.bandwidth())
-      .attr("height", d => height - y(d.salary))
-      .attr("fill", d => color(d.company_size));
+      .attr("height", d => height - y(d.salary));
   }
 
-  // =============================
-  // LEGEND
-  // =============================
   const legend = svg.append("g")
-    .attr("class", "legend")
     .attr("transform", `translate(${margin.left + width + 40},${margin.top})`);
 
   companySizes.forEach((size, i) => {
@@ -194,13 +226,10 @@ d3.csv("/resources/salaries.csv", d3.autoType).then(data => {
     row.append("text")
       .attr("x", 20)
       .attr("y", 12)
-      .attr("dominant-baseline", "middle")
       .text(size === "S" ? "Small" : size === "M" ? "Medium" : "Large");
   });
 
-  // Initial render
   update(years[years.length - 1]);
-
 });
 </script>
 

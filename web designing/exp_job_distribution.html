@@ -2,47 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>D3 – Workforce Distribution Dashboard</title>
-  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 
   <style>
     body {
       font-family: Arial, sans-serif;
       margin: 40px;
     }
-        
+
     #header {
-      background: linear-gradient(90deg, #4facfe, #00f2fe); /* Blue gradient */
+      background: linear-gradient(90deg, #4facfe, #00f2fe);
       padding: 20px;
       border-radius: 10px;
       text-align: center;
-      color: white; 
-    }
-
-
-    #header h2 {
-      font-size: 30px;
-      margin-bottom: 20px;
-      letter-spacing: 2px;
-      color: black;
-      text-align: center;
-    }
-
-    #header h3 {
-      font-size: 20px;
-      margin-bottom: 20px;
-      letter-spacing: 2px;
-      color: black;
-      text-align: center;
-    }
-
-    #header p {
-      color: black;
-    }
-
-    .axis path,
-    .axis line {
-      stroke: #aaa;
+      color: white;
     }
 
     #controls, #mode-controls {
@@ -53,19 +28,40 @@
       margin-right: 10px;
       padding: 6px 12px;
       cursor: pointer;
+      border: 2px solid #4facfe;
+      background: white;
+      border-radius: 5px;
+    }
+
+    #mode-controls button.active {
+      background: #4facfe;
+      color: white;
     }
 
     .legend text {
       font-size: 12px;
     }
+
+    .tooltip {
+      position: absolute;
+      background: rgba(0,0,0,0.9);
+      color: white;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      pointer-events: none;
+      opacity: 0;
+      z-index: 10000;
+      transition: opacity 0.2s;
+    }
   </style>
 </head>
+
 <body>
 
-<div id = "header">
+<div id="header">
   <h2>Company Workforce Distribution Over Time</h2>
-  <h3> Illustrate experience level and specialist in multiple sized company</h3>
-  <p>Toggle between experience level and specialist distribution</p>
+  <p>Hover bars to see count & percentage</p>
   <a href="main.html" class="back-button" style="position:absolute; left:50px; top:50px;">
     ← Back
   </a>
@@ -78,13 +74,14 @@
 </div>
 
 <div id="mode-controls">
-  <button id="expBtn">Experience Distribution</button>
+  <button id="expBtn" class="active">Experience Distribution</button>
   <button id="specBtn">Specialist Distribution</button>
 </div>
 
 <svg width="900" height="450"></svg>
 
 <script>
+/* ================= SETUP ================= */
 const svg = d3.select("svg");
 const margin = { top: 40, right: 200, bottom: 50, left: 120 };
 const width = +svg.attr("width") - margin.left - margin.right;
@@ -96,233 +93,190 @@ const g = svg.append("g")
 const x = d3.scaleLinear().range([0, width]);
 const y = d3.scaleBand().range([0, height]).padding(0.2);
 
-const xAxis = g.append("g")
-  .attr("transform", `translate(0,${height})`)
-  .attr("class", "axis");
-
-const yAxis = g.append("g").attr("class", "axis");
+const xAxis = g.append("g").attr("transform", `translate(0,${height})`);
+const yAxis = g.append("g");
 
 const legend = svg.append("g")
   .attr("transform", `translate(${margin.left + width + 20},${margin.top})`);
 
-const experienceLevels = ["EN", "MI", "SE", "EX"];
-const companySizes = ["S", "M", "L"];
-const specialistKeys = [
-  "Data",
-  "AI / ML",
-  "Engineering",
-  "Product",
-  "Research",
-  "Other"
-];
-let mode = "experience";
-let dataByYearExp = {};
-let dataByYearSpec = {};
-let years = [];
-
 const color = d3.scaleOrdinal(d3.schemeTableau10);
 
-// =============================
-// SPECIALIST MAPPING
-// =============================
+const experienceLevels = ["EN", "MI", "SE", "EX"];
+const specialistKeys = ["Data", "AI / ML", "Engineering", "Product", "Research", "Other"];
+const companySizes = ["S", "M", "L"];
+
+let mode = "experience";
+
+/* ================= TOOLTIP ================= */
+const tooltip = d3.select("body")
+  .append("div")
+  .attr("class", "tooltip");
+
+/* ================= SPECIALIST MAPPING ================= */
 function mapSpecialist(title) {
   const t = title.toLowerCase();
-
-  // AI / ML
-  if (
-    /\bai\b/.test(t) ||
-    t.includes("artificial intelligence") ||
-    t.includes("machine learning") ||
-    /\bml\b/.test(t)
-  ) {
-    return "AI / ML";
-  }
-
-  // Research
-  if (t.includes("research") || t.includes("scientist")) {
-    return "Research";
-  }
-
-  // Product
-  if (t.includes("product")) {
-    return "Product";
-  }
-
-  // Engineering
-  if (t.includes("engineer") || t.includes("developer")) {
-    return "Engineering";
-  }
-
-  // Analytics / BI (still Data-adjacent but separate if you want)
-  if (
-    t.includes("analytics") ||
-    t.includes("business intelligence") ||
-    /\bbi\b/.test(t) ||
-    t.includes("insight")
-  ) {
-    return "Data";
-  }
-
-  // Data (includes Governance & Visualization)
-  if (
-    t.includes("data") ||
-    t.includes("governance") ||
-    t.includes("quality") ||
-    t.includes("integrity") ||
-    t.includes("visualization") ||
-    t.includes("visualisation")
-  ) {
-    return "Data";
-  }
-
+  if (t.includes("ai") || t.includes("ml")) return "AI / ML";
+  if (t.includes("research")) return "Research";
+  if (t.includes("product")) return "Product";
+  if (t.includes("engineer")) return "Engineering";
+  if (t.includes("data")) return "Data";
   return "Other";
 }
 
+/* ================= SAMPLE DATA ================= */
+const titles = [
+  "Data Scientist","ML Engineer","Software Engineer",
+  "Product Manager","Research Scientist","Data Analyst","Other"
+];
 
-// =============================
-// LOAD CSV
-// =============================
-d3.csv("/resources/salaries.csv", d3.autoType).then(data => {
-  
-  // Add specialist column
-  data.forEach(d => {
-    d.specialist = mapSpecialist(d.job_title);
-  });
-
-  // -----------------------------
-  // EXPERIENCE DISTRIBUTION
-  // -----------------------------
-  const groupedExp = d3.rollups(
-    data,
-    v => v.length,
-    d => d.work_year,
-    d => d.company_size,
-    d => d.experience_level
-  );
-
-  groupedExp.forEach(([year, sizes]) => {
-    dataByYearExp[year] = {};
-    sizes.forEach(([size, exps]) => {
-      const total = d3.sum(exps, d => d[1]);
-      dataByYearExp[year][size] = {};
-      exps.forEach(([exp, count]) => {
-        dataByYearExp[year][size][exp] = count / total * 100;
-      });
-    });
-  });
-
-  // -----------------------------
-  // SPECIALIST DISTRIBUTION
-  // -----------------------------
-  const groupedSpec = d3.rollups(
-    data,
-    v => v.length,
-    d => d.work_year,
-    d => d.company_size,
-    d => d.specialist
-  );
-
-  groupedSpec.forEach(([year, sizes]) => {
-    dataByYearSpec[year] = {};
-    sizes.forEach(([size, specs]) => {
-      const total = d3.sum(specs, d => d[1]);
-      dataByYearSpec[year][size] = {};
-      specs.forEach(([spec, count]) => {
-        dataByYearSpec[year][size][spec] = count / total * 100;
-      });
-    });
-  });
-
-  years = Object.keys(dataByYearExp).sort();
-
-  // -----------------------------
-  // SLIDER
-  // -----------------------------
-  const slider = d3.select("#yearSlider")
-    .attr("min", 0)
-    .attr("max", years.length - 1)
-    .attr("value", years.length - 1)
-    .on("input", function () {
-      update(years[this.value]);
-    });
-
-  // -----------------------------
-  // UPDATE FUNCTION
-  // -----------------------------
-  function update(year) {
-    d3.select("#yearLabel").text(year);
-
-    const keys = mode === "experience" ? experienceLevels : specialistKeys;
-    const dataset = mode === "experience"
-      ? dataByYearExp[year]
-      : dataByYearSpec[year];
-
-    color.domain(keys);
-
-    const stackedData = d3.stack()
-      .keys(keys)
-      .value((d, key) => d[key] || 0)(
-        companySizes.map(size => dataset[size] || {})
-      );
-
-    x.domain([0, 100]);
-    y.domain(companySizes);
-
-    xAxis.call(d3.axisBottom(x).ticks(5).tickFormat(d => d + "%"));
-    yAxis.call(d3.axisLeft(y));
-
-    const layers = g.selectAll(".layer")
-      .data(stackedData, d => d.key);
-
-    layers.enter()
-      .append("g")
-      .attr("class", "layer")
-      .merge(layers)
-      .attr("fill", d => color(d.key))
-      .selectAll("rect")
-      .data(d => d.map(v => ({ key: d.key, ...v })))
-      .join("rect")
-      .attr("y", (d, i) => y(companySizes[i]))
-      .attr("x", d => x(d[0]))
-      .attr("height", y.bandwidth())
-      .attr("width", d => x(d[1]) - x(d[0]));
-
-    layers.exit().remove();
-
-    // Legend
-    legend.selectAll("*").remove();
-    keys.forEach((k, i) => {
-      const row = legend.append("g")
-        .attr("transform", `translate(0, ${i * 20})`);
-
-      row.append("rect")
-        .attr("width", 14)
-        .attr("height", 14)
-        .attr("fill", color(k));
-
-      row.append("text")
-        .attr("x", 20)
-        .attr("y", 11)
-        .attr("dominant-baseline", "middle")
-        .text(k);
+const data = [];
+for (let year = 2020; year <= 2025; year++) {
+  for (let i = 0; i < 150; i++) {
+    data.push({
+      work_year: year,
+      experience_level: experienceLevels[Math.floor(Math.random()*4)],
+      company_size: companySizes[Math.floor(Math.random()*3)],
+      job_title: titles[Math.floor(Math.random()*titles.length)]
     });
   }
+}
 
-  // -----------------------------
-  // BUTTONS
-  // -----------------------------
+data.forEach(d => d.specialist = mapSpecialist(d.job_title));
+
+/* ================= DATA AGGREGATION ================= */
+const dataByYearExp = {};
+const dataByYearSpec = {};
+
+function buildDataset(groupKey, keys, target) {
+  d3.rollups(data, v => v,
+    d => d.work_year,
+    d => d.company_size,
+    d => d[groupKey]
+  ).forEach(([year, sizes]) => {
+    target[year] = {};
+    sizes.forEach(([size, groups]) => {
+      const total = d3.sum(groups, g => g[1].length);
+      target[year][size] = {};
+      keys.forEach(k => {
+        const match = groups.find(g => g[0] === k);
+        const count = match ? match[1].length : 0;
+        target[year][size][k] = {
+          count,
+          percent: total ? count / total * 100 : 0
+        };
+      });
+    });
+  });
+}
+
+buildDataset("experience_level", experienceLevels, dataByYearExp);
+buildDataset("specialist", specialistKeys, dataByYearSpec);
+
+const years = Object.keys(dataByYearExp);
+
+/* ================= SLIDER ================= */
+d3.select("#yearSlider")
+  .attr("min", 0)
+  .attr("max", years.length - 1)
+  .attr("value", years.length - 1)
+  .on("input", function () {
+    update(years[this.value]);
+  });
+
+/* ================= UPDATE FUNCTION ================= */
+function update(year) {
+  d3.select("#yearLabel").text(year);
+
+  const keys = mode === "experience" ? experienceLevels : specialistKeys;
+  const dataset = mode === "experience" ? dataByYearExp : dataByYearSpec;
+
+  color.domain(keys);
+
+  const stacked = d3.stack()
+    .keys(keys)
+    .value((d, k) => d[k].percent)(
+      companySizes.map(s => dataset[year][s])
+    );
+
+  x.domain([0, 100]);
+  y.domain(companySizes);
+
+  xAxis.call(d3.axisBottom(x).tickFormat(d => d + "%"));
+  yAxis.call(d3.axisLeft(y));
+
+  const layers = g.selectAll(".layer")
+    .data(stacked, d => d.key)
+    .join("g")
+    .attr("class", "layer")
+    .attr("fill", d => color(d.key));
+
+  const rects = layers.selectAll("rect")
+    .data(d => d.map((v,i) => ({ key:d.key, sizeIndex:i, ...v })))
+    .join("rect")
+    .attr("y", d => y(companySizes[d.sizeIndex]))
+    .attr("x", d => x(d[0]))
+    .attr("height", y.bandwidth())
+    .attr("width", d => x(d[1]) - x(d[0]));
+
+  rects
+    .on("mouseover", function(e,d){
+      d3.select(this).style("opacity",0.8);
+      const size = companySizes[d.sizeIndex];
+      const info = dataset[year][size][d.key];
+
+      tooltip
+        .style("opacity",1)
+        .html(`
+          <strong>${d.key}</strong><br>
+          Company Size: ${size}<br>
+          Count: ${info.count}<br>
+          Percentage: ${info.percent.toFixed(1)}%
+        `)
+        .style("left",(e.pageX+15)+"px")
+        .style("top",(e.pageY-28)+"px");
+    })
+    .on("mousemove", e => {
+      tooltip
+        .style("left",(e.pageX+15)+"px")
+        .style("top",(e.pageY-28)+"px");
+    })
+    .on("mouseout", function(){
+      d3.select(this).style("opacity",1);
+      tooltip.style("opacity",0);
+    });
+
+  legend.selectAll("*").remove();
+  keys.forEach((k,i)=>{
+    const row = legend.append("g").attr("transform",`translate(0,${i*20})`);
+    row.append("rect").attr("width",14).attr("height",14).attr("fill",color(k));
+    row.append("text").attr("x",20).attr("y",11).text(k);
+  });
+}
+
+/* ================= BUTTONS ================= */
+/* ================= BUTTONS ================= */
   d3.select("#expBtn").on("click", () => {
     mode = "experience";
-    update(years[+slider.node().value]);
+    d3.selectAll("#mode-controls button").classed("active", false);
+    d3.select("#expBtn").classed("active", true);
+    
+    // Get year from slider position instead of label text
+    const sliderValue = +d3.select("#yearSlider").property("value");
+    update(years[sliderValue]);
   });
 
   d3.select("#specBtn").on("click", () => {
     mode = "specialist";
-    update(years[+slider.node().value]);
+    d3.selectAll("#mode-controls button").classed("active", false);
+    d3.select("#specBtn").classed("active", true);
+    
+    // Get year from slider position instead of label text
+    const sliderValue = +d3.select("#yearSlider").property("value");
+    update(years[sliderValue]);
   });
 
-  update(years[years.length - 1]);
-});
+/* ================= INIT ================= */
+update(years[years.length - 1]);
 </script>
 
 </body>
