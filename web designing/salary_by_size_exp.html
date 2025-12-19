@@ -56,8 +56,7 @@
 
 <div id = "header">
   <h2>How Company Size Pays Differently by Experience Level (Over Time)</h2>
-  <h3>Median salary (USD) by experience level and company size, shown per year.</h3>
-  <h3>Median salary (USD). Hover over points to see exact values.</h3>
+  <h3>Mean salary (USD) by experience level and company size, shown per year.</h3>
     <a href="main.html" class="back-button" style="position:absolute; left:50px; top:50px;">
     ← Back
   </a>
@@ -110,7 +109,7 @@ d3.csv("/resources/salaries.csv", d3.autoType).then(data => {
 
   const rolled = d3.rollups(
     data,
-    v => d3.median(v, d => d.salary_in_usd),
+    v => d3.mean(v, d => d.salary_in_usd),
     d => d.work_year,
     d => d.experience_level,
     d => d.company_size

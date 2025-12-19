@@ -66,8 +66,7 @@
   <h2>Company Workforce Distribution Over Time</h2>
   <h3> Illustrate experience level and specialist in multiple sized company</h3>
   <p>Toggle between experience level and specialist distribution</p>
-  <h3>Median salary (USD). Hover over points to see exact values.</h3>
-    <a href="main.html" class="back-button" style="position:absolute; left:50px; top:50px;">
+  <a href="main.html" class="back-button" style="position:absolute; left:50px; top:50px;">
     ← Back
   </a>
 </div>
@@ -107,9 +106,15 @@ const legend = svg.append("g")
   .attr("transform", `translate(${margin.left + width + 20},${margin.top})`);
 
 const experienceLevels = ["EN", "MI", "SE", "EX"];
-const specialistKeys = ["AI", "Data", "Engineering", "Product", "Other"];
 const companySizes = ["S", "M", "L"];
-
+const specialistKeys = [
+  "Data",
+  "AI / ML",
+  "Engineering",
+  "Product",
+  "Research",
+  "Other"
+];
 let mode = "experience";
 let dataByYearExp = {};
 let dataByYearSpec = {};
@@ -122,12 +127,57 @@ const color = d3.scaleOrdinal(d3.schemeTableau10);
 // =============================
 function mapSpecialist(title) {
   const t = title.toLowerCase();
-  if (t.includes("ai") || t.includes("ml")) return "AI";
-  if (t.includes("data")) return "Data";
-  if (t.includes("engineer")) return "Engineering";
-  if (t.includes("product")) return "Product";
+
+  // AI / ML
+  if (
+    /\bai\b/.test(t) ||
+    t.includes("artificial intelligence") ||
+    t.includes("machine learning") ||
+    /\bml\b/.test(t)
+  ) {
+    return "AI / ML";
+  }
+
+  // Research
+  if (t.includes("research") || t.includes("scientist")) {
+    return "Research";
+  }
+
+  // Product
+  if (t.includes("product")) {
+    return "Product";
+  }
+
+  // Engineering
+  if (t.includes("engineer") || t.includes("developer")) {
+    return "Engineering";
+  }
+
+  // Analytics / BI (still Data-adjacent but separate if you want)
+  if (
+    t.includes("analytics") ||
+    t.includes("business intelligence") ||
+    /\bbi\b/.test(t) ||
+    t.includes("insight")
+  ) {
+    return "Data";
+  }
+
+  // Data (includes Governance & Visualization)
+  if (
+    t.includes("data") ||
+    t.includes("governance") ||
+    t.includes("quality") ||
+    t.includes("integrity") ||
+    t.includes("visualization") ||
+    t.includes("visualisation")
+  ) {
+    return "Data";
+  }
+
   return "Other";
 }
+
 
 // =============================
 // LOAD CSV
